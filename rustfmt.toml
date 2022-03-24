@@ -1,0 +1,9 @@
+# stable features
+merge_derives = true
+
+# unstable feature
+unstable_features = true
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+wrap_comments = true
+format_code_in_doc_comments = true
