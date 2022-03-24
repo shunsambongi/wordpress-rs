@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -7,22 +7,10 @@ use http::{Method, Request, Response, StatusCode};
 use thiserror::Error;
 use url::Url;
 
-use crate::{ApiError, Client, Endpoint};
+use crate::{ApiError, Client};
 
 const MOCK_ROOT_ROUTE: &'static str = "test://test";
 const MOCK_ROUTE: &str = "/mock";
-
-pub struct MockEndpoint;
-
-impl Endpoint for MockEndpoint {
-    fn method(&self) -> Method {
-        Method::GET
-    }
-
-    fn route(&self) -> Cow<'static, str> {
-        MOCK_ROUTE.into()
-    }
-}
 
 /// Mock a response.
 #[derive(Debug, Builder)]

@@ -3,6 +3,7 @@ pub use crate::{
 };
 
 mod client;
+mod document;
 mod endpoint;
 mod error;
 mod query;
