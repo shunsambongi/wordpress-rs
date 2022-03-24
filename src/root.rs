@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use url::Url;
 
 /// Name of query parameter that is used to specify the endpoint route when

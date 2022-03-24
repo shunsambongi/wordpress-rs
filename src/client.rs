@@ -25,7 +25,7 @@ pub trait Client {
     ///
     /// This method should handle instances with or without "pretty permalinks"
     /// enabled.
-    fn route_url(&self, route: &str) -> Result<Url, ApiError<Self::Error>>;
+    async fn route_url(&self, route: &str) -> Result<Url, ApiError<Self::Error>>;
 
     /// Send an HTTP request
     async fn send_request(
@@ -89,7 +89,7 @@ mod tests {
     impl Client for DiscoveryClient {
         type Error = DiscoveryError;
 
-        async fn route_url(&self, route: &str) -> Result<Url, ApiError<Self::Error>> {
+        async fn route_url(&self, _route: &str) -> Result<Url, ApiError<Self::Error>> {
             unimplemented!()
         }
 

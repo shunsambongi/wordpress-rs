@@ -1,19 +1,50 @@
 use async_trait::async_trait;
 use bytes::Bytes;
 use http::{request::Builder as RequestBuilder, Response};
+use reqwest::Client as HttpClient;
 use thiserror::Error;
+use tokio::sync::OnceCell;
 use url::Url;
 
-use crate::{client::Client, error::ApiError};
+use crate::{client::Client, error::ApiError, root::RootRoute};
 
-pub struct WordPress {}
+/// Asynchronous WordPress client.
+pub struct WordPress {
+    client: HttpClient,
+    site_url: Url,
+    root_route: OnceCell<RootRoute>,
+}
+
+impl WordPress {
+    /// Create a new WordPress client.
+    pub fn new(site_url: impl AsRef<str>) -> Result<Self, WordPressError> {
+        let wp = Self {
+            client: HttpClient::new(),
+            site_url: Url::parse(site_url.as_ref())?,
+            root_route: OnceCell::new(),
+        };
+        Ok(wp)
+    }
+
+    /// The root route for the WordPress instance.
+    ///
+    /// The value will change depending on the permalink structure configured
+    /// for the site.
+    pub async fn root_route(&self) -> Result<&RootRoute, ApiError<WordPressError>> {
+        let result = self
+            .root_route
+            .get_or_try_init(|| self.discover_root_route(&self.site_url))
+            .await;
+        Ok(result?)
+    }
+}
 
 #[async_trait]
 impl Client for WordPress {
     type Error = WordPressError;
 
-    fn route_url(&self, route: &str) -> Result<Url, ApiError<Self::Error>> {
-        todo!()
+    async fn route_url(&self, route: &str) -> Result<Url, ApiError<Self::Error>> {
+        Ok(self.root_route().await?.join(route))
     }
 
     async fn send_request(
@@ -21,10 +52,107 @@ impl Client for WordPress {
         request: RequestBuilder,
         body: Option<Vec<u8>>,
     ) -> Result<Response<Bytes>, ApiError<Self::Error>> {
-        todo!()
+        use futures_util::TryFutureExt;
+        let call = || async {
+            let body = if let Some(body) = body {
+                body
+            } else {
+                vec![].into()
+            };
+
+            let http_req = request.body(body)?;
+
+            let req = http_req.try_into()?;
+            let resp = self.client.execute(req).await?;
+
+            let mut http_resp = Response::builder()
+                .status(resp.status())
+                .version(resp.version());
+            let headers = http_resp.headers_mut().unwrap();
+            for (key, value) in resp.headers() {
+                headers.insert(key, value.clone());
+            }
+            Ok(http_resp.body(resp.bytes().await?)?)
+        };
+        call().map_err(ApiError::client).await
     }
 }
 
+/// Errors that may occur when using the WordPress client.
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum WordPressError {}
+pub enum WordPressError {
+    #[error("failed to parse url: {}", source)]
+    UrlParse {
+        #[from]
+        source: url::ParseError,
+    },
+
+    #[error("communication with wordpress: {}", source)]
+    Communication {
+        #[from]
+        source: reqwest::Error,
+    },
+
+    #[error("`http` error: {}", source)]
+    Http {
+        #[from]
+        source: http::Error,
+    },
+}
+
+impl From<WordPressError> for ApiError<WordPressError> {
+    fn from(err: WordPressError) -> Self {
+        ApiError::client(err)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use http::Request;
+    use pretty_assertions::assert_eq;
+    use wiremock::{matchers::method, Mock, MockServer, ResponseTemplate};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn root_route() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("HEAD"))
+            .respond_with(ResponseTemplate::new(200).insert_header(
+                "link",
+                "<http://example.com/wp-json/>; rel=\"https://api.w.org/\"",
+            ))
+            .mount(&mock_server)
+            .await;
+
+        let wordpress = WordPress::new(mock_server.uri()).unwrap();
+
+        let root = wordpress.root_route().await.unwrap();
+
+        assert_eq!(root.as_str(), "http://example.com/wp-json/");
+    }
+
+    #[tokio::test]
+    async fn send_request() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("bob loblaw"))
+            .mount(&mock_server)
+            .await;
+
+        let wordpress = WordPress::new(mock_server.uri()).unwrap();
+
+        let resp = wordpress
+            .send_request(
+                Request::builder().method("GET").uri(mock_server.uri()),
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.body(), "bob loblaw");
+    }
+}
