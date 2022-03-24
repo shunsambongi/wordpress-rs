@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
 use async_trait::async_trait;
-use http::{Method, Request};
+use http::Method;
 use serde::de::DeserializeOwned;
 
-use crate::{client::Client, query::Query, ApiError};
+use crate::{client::Client, query::Query, request::RequestBuilder, ApiError};
 
 /// A trait for providing the necessary information for a single REST API
 /// endpoint.
@@ -25,30 +25,11 @@ where
 {
     async fn query(&self, client: &C) -> Result<T, ApiError<C::Error>> {
         let url = client.route_url(&self.route()).await?;
-
-        let req = Request::builder()
+        RequestBuilder::new()
             .method(self.method())
-            .uri(url.as_str())
-            .body(Vec::new())
-            .map_err(ApiError::request)?;
-
-        let resp = client.send_request(req).await?;
-
-        let status = resp.status();
-
-        // we are assuming all endpoints return JSON for both success and error
-        // responses
-        let json = if let Ok(json) = serde_json::from_slice(resp.body()) {
-            json
-        } else {
-            return Err(ApiError::server_error(status, resp.body()));
-        };
-
-        if !status.is_success() {
-            return Err(ApiError::from_json(json));
-        }
-
-        serde_json::from_value(json).map_err(ApiError::data_type::<T>)
+            .url(url)
+            .query(client)
+            .await
     }
 }
 

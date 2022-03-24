@@ -6,6 +6,7 @@ mod client;
 mod endpoint;
 mod error;
 mod query;
+mod request;
 mod root;
 
 #[cfg(feature = "client")]
