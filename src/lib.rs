@@ -5,6 +5,7 @@ pub use crate::{
 mod client;
 mod document;
 mod endpoint;
+pub mod endpoints;
 mod error;
 mod query;
 mod request;

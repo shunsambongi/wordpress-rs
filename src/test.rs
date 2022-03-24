@@ -20,8 +20,8 @@ pub struct MockResponse {
     pub method: Method,
 
     /// Route
-    #[builder(default = "MOCK_ROUTE")]
-    pub route: &'static str,
+    #[builder(default = "MOCK_ROUTE.to_string()", setter(into))]
+    pub route: String,
 
     /// Response body
     #[builder(default, setter(into))]
@@ -35,6 +35,13 @@ pub struct MockResponse {
 impl MockResponse {
     pub fn builder() -> MockResponseBuilder {
         MockResponseBuilder::default()
+    }
+}
+
+impl MockResponseBuilder {
+    pub fn json(&mut self, value: serde_json::Value) -> &mut MockResponseBuilder {
+        let body = serde_json::to_vec(&value).expect("failed to convert json to vec");
+        self.body(body)
     }
 }
 

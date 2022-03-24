@@ -32,3 +32,11 @@ where
             .await
     }
 }
+
+pub mod prelude {
+    pub use std::borrow::Cow;
+
+    pub use http::Method;
+
+    pub use super::Endpoint;
+}
