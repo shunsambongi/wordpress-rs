@@ -25,9 +25,14 @@ where
 {
     async fn query(&self, client: &C) -> Result<T, ApiError<C::Error>> {
         let url = client.route_url(&self.route()).await?;
-        let req = Request::builder().method(self.method()).uri(url.as_str());
 
-        let resp = client.send_request(req, None).await?;
+        let req = Request::builder()
+            .method(self.method())
+            .uri(url.as_str())
+            .body(Vec::new())
+            .map_err(ApiError::request)?;
+
+        let resp = client.send_request(req).await?;
 
         let status = resp.status();
 

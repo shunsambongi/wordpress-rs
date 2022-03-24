@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use thiserror::Error;
+use url::Url;
 
 /// Errors which may occur when using API endpoints.
 #[derive(Debug, Error)]
@@ -24,9 +25,20 @@ where
         source: url::ParseError,
     },
 
+    /// Failed to build request.
+    #[error("failed to build request: {}", source)]
+    Request {
+        #[source]
+        source: http::Error,
+    },
+
     /// Failed to discover API root route.
-    #[error("failed to discover root route")]
-    RootRouteDiscovery,
+    #[error("failed to discover root route: {}", url)]
+    RootRouteDiscovery { url: Url },
+
+    /// Failed to discover resource.
+    #[error("failed to discover resource: {}", url)]
+    ResourceDiscovery { url: Url },
 
     /// WordPress returned an error response.
     #[error("gitlab server error: [{}] {}", code, message)]
@@ -71,11 +83,23 @@ where
         ApiError::Client { source }
     }
 
+    pub(crate) fn request(source: http::Error) -> Self {
+        ApiError::Request { source }
+    }
+
     pub(crate) fn server_error(status: http::StatusCode, body: &bytes::Bytes) -> Self {
         Self::WordPressInternal {
             status,
             data: body.into_iter().copied().collect(),
         }
+    }
+
+    pub(crate) fn root_route_discovery(url: Url) -> Self {
+        Self::RootRouteDiscovery { url }
+    }
+
+    pub(crate) fn resource_discovery(url: Url) -> Self {
+        Self::ResourceDiscovery { url }
     }
 
     pub(crate) fn from_json(json: serde_json::Value) -> Self {

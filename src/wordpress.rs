@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use bytes::Bytes;
-use http::{request::Builder as RequestBuilder, Response};
+use http::{Request, Response};
 use reqwest::Client as HttpClient;
 use thiserror::Error;
 use tokio::sync::OnceCell;
@@ -49,29 +49,21 @@ impl Client for WordPress {
 
     async fn send_request(
         &self,
-        request: RequestBuilder,
-        body: Option<Vec<u8>>,
+        request: Request<Vec<u8>>,
     ) -> Result<Response<Bytes>, ApiError<Self::Error>> {
         use futures_util::TryFutureExt;
         let call = || async {
-            let body = if let Some(body) = body {
-                body
-            } else {
-                vec![].into()
-            };
-
-            let http_req = request.body(body)?;
-
-            let req = http_req.try_into()?;
-            let resp = self.client.execute(req).await?;
+            let resp = self.client.execute(request.try_into()?).await?;
 
             let mut http_resp = Response::builder()
                 .status(resp.status())
                 .version(resp.version());
+
             let headers = http_resp.headers_mut().unwrap();
             for (key, value) in resp.headers() {
                 headers.insert(key, value.clone());
             }
+
             Ok(http_resp.body(resp.bytes().await?)?)
         };
         call().map_err(ApiError::client).await
@@ -145,13 +137,13 @@ mod tests {
 
         let wordpress = WordPress::new(mock_server.uri()).unwrap();
 
-        let resp = wordpress
-            .send_request(
-                Request::builder().method("GET").uri(mock_server.uri()),
-                None,
-            )
-            .await
+        let req = Request::builder()
+            .method("GET")
+            .uri(mock_server.uri())
+            .body(Vec::new())
             .unwrap();
+
+        let resp = wordpress.send_request(req).await.unwrap();
 
         assert_eq!(resp.body(), "bob loblaw");
     }

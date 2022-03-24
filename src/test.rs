@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap};
 use async_trait::async_trait;
 use bytes::Bytes;
 use derive_builder::Builder;
-use http::{request::Builder as RequestBuilder, Method, Response, StatusCode};
+use http::{Method, Request, Response, StatusCode};
 use thiserror::Error;
 use url::Url;
 
@@ -87,18 +87,9 @@ impl Client for MockClient {
 
     async fn send_request(
         &self,
-        request: RequestBuilder,
-        body: Option<Vec<u8>>,
+        request: Request<Vec<u8>>,
     ) -> Result<Response<Bytes>, ApiError<Self::Error>> {
-        let body = if let Some(body) = body {
-            body
-        } else {
-            Vec::new()
-        };
-
-        let req = request.body(body).expect("failed to build request");
-
-        let key = (req.method().clone(), req.uri().path().into());
+        let key = (request.method().clone(), request.uri().path().into());
 
         let mock = self
             .response_map
