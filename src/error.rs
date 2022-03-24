@@ -15,6 +15,18 @@ where
         /// The client error.
         source: E,
     },
+
+    /// URL failed to parse.
+    #[error("failed to parse url: {}", source)]
+    UrlParse {
+        /// The source of the error.
+        #[from]
+        source: url::ParseError,
+    },
+
+    /// Failed to discover API root route
+    #[error("failed to discover root route")]
+    RootRouteDiscovery,
 }
 
 impl<E> ApiError<E>

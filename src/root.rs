@@ -21,6 +21,15 @@ pub enum RootRoute {
 }
 
 impl RootRoute {
+    pub fn as_str(&self) -> &str {
+        let url = match self {
+            RootRoute::Default(url) => url,
+            RootRoute::PrettyPermalinks(url) => url,
+        };
+        url.as_str()
+    }
+
+    /// Join an endpoint route onto the root route
     pub fn join(&self, route: &str) -> Url {
         match self {
             RootRoute::Default(url) => {
