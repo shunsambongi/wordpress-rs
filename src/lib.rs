@@ -1,5 +1,5 @@
 pub use crate::{
-    client::Client, endpoint::Endpoint, error::ApiError, query::Query, root::RootRoute,
+    client::Client, document::Document, endpoint::Endpoint, error::ApiError, query::Query,
 };
 
 mod client;
@@ -9,7 +9,7 @@ pub mod endpoints;
 mod error;
 mod query;
 mod request;
-mod root;
+pub mod root;
 
 #[cfg(feature = "client")]
 pub use crate::wordpress::WordPress;
