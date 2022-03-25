@@ -8,6 +8,12 @@ use crate::{client::Client, error::ApiError, query::Query, request::RequestBuild
 /// URL to the web page for a resource
 pub struct Document(Url);
 
+impl From<Url> for Document {
+    fn from(url: Url) -> Self {
+        Document(url)
+    }
+}
+
 #[async_trait]
 impl<T, C> Query<T, C> for Document
 where
