@@ -61,7 +61,14 @@ impl Client for WordPress {
 
             let headers = http_resp.headers_mut().unwrap();
             for (key, value) in resp.headers() {
-                headers.insert(key, value.clone());
+                match headers.entry(key) {
+                    http::header::Entry::Occupied(mut entry) => {
+                        entry.append(value.clone());
+                    }
+                    http::header::Entry::Vacant(entry) => {
+                        entry.insert(value.clone());
+                    }
+                }
             }
 
             Ok(http_resp.body(resp.bytes().await?)?)
@@ -146,5 +153,42 @@ mod tests {
         let resp = wordpress.send_request(req).await.unwrap();
 
         assert_eq!(resp.body(), "bob loblaw");
+    }
+
+    #[tokio::test]
+    async fn duplicate_headers() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("HEAD"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .append_header(
+                        "link",
+                        "<http://example.com/wp-json/>; rel=\"https://api.w.org/\"",
+                    )
+                    .append_header(
+                        "link",
+                        r#"<http://example.com/wp-json/wp/v2/posts/1>; rel="alternate"; type="application/json""#,
+                    )
+                    .append_header(
+                        "link",
+                        r#"<http://example.com/?p=1>; rel="shortlink""#,
+                    )
+            )
+            .mount(&mock_server)
+            .await;
+
+        let wordpress = WordPress::new(mock_server.uri()).unwrap();
+
+        let req = Request::builder()
+            .method("HEAD")
+            .uri(mock_server.uri())
+            .body(Vec::new())
+            .unwrap();
+
+        let resp = wordpress.send_request(req).await.unwrap();
+
+        let links: Vec<_> = resp.headers().get_all("link").into_iter().collect();
+        assert_eq!(links.len(), 3);
     }
 }
