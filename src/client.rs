@@ -34,6 +34,7 @@ pub trait Client {
     ) -> Result<Response<Bytes>, ApiError<Self::Error>>;
 
     /// Discover the API root route for a WordPress instance.
+    #[tracing::instrument(level = "debug", skip(self), fields(url = %url.as_ref()))]
     async fn discover_root_route(
         &self,
         url: impl AsRef<str> + Send + 'async_trait,
@@ -47,6 +48,7 @@ pub trait Client {
     }
 
     /// Resource discovery.
+    #[tracing::instrument(level = "debug", skip(self), fields(url = %url.as_ref()))]
     async fn discover_resource(
         &self,
         url: impl AsRef<str> + Send + 'async_trait,
