@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use http::{Request, Response};
@@ -18,8 +20,12 @@ pub struct WordPress {
 impl WordPress {
     /// Create a new WordPress client.
     pub fn new(site_url: impl AsRef<str>) -> Result<Self, WordPressError> {
+        let client = HttpClient::builder()
+            .timeout(Duration::from_secs(10))
+            .connect_timeout(Duration::from_secs(10))
+            .build()?;
         let wp = Self {
-            client: HttpClient::new(),
+            client,
             site_url: Url::parse(site_url.as_ref())?,
             root_route: OnceCell::new(),
         };
